@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Q&A Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Document Q&A Assistant</h1>
+            <p class="subtitle">Upload a document and ask questions about its contents</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="upload-section" id="upload-section">
+                <div class="upload-box" id="upload-box">
+                    <div class="upload-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                    </div>
+                    <p>Drag and drop a file here, or click to browse</p>
+                    <p class="upload-hint">Supports: PDF, DOCX, TXT, MD (max 16MB)</p>
+                    <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" hidden>
+                </div>
+            </section>
+
+            <!-- Document Info -->
+            <section class="document-info" id="document-info" style="display: none;">
+                <div class="doc-card">
+                    <div class="doc-header">
+                        <span class="doc-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                        </span>
+                        <div class="doc-details">
+                            <h3 id="doc-filename">document.pdf</h3>
+                            <p id="doc-stats">Loading...</p>
+                        </div>
+                        <button class="btn-secondary" id="upload-new">Upload Different</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Chat Section -->
+            <section class="chat-section" id="chat-section" style="display: none;">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message assistant">
+                            <div class="message-content">
+                                <p>Document loaded! Ask me anything about its contents.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <input type="text" id="question-input" placeholder="Ask a question about the document..." autocomplete="off">
+                        <button id="send-btn" class="btn-primary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Document Q&A Assistant - AI-Powered Document Analysis</p>
+        </footer>
+    </div>
+
+    <script>
+        const uploadBox = document.getElementById('upload-box');
+        const fileInput = document.getElementById('file-input');
+        const uploadSection = document.getElementById('upload-section');
+        const documentInfo = document.getElementById('document-info');
+        const chatSection = document.getElementById('chat-section');
+        const chatMessages = document.getElementById('chat-messages');
+        const questionInput = document.getElementById('question-input');
+        const sendBtn = document.getElementById('send-btn');
+        const uploadNewBtn = document.getElementById('upload-new');
+
+        let currentDocId = null;
+
+        // Upload handlers
+        uploadBox.addEventListener('click', () => fileInput.click());
+
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) uploadFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) uploadFile(file);
+        });
+
+        uploadNewBtn.addEventListener('click', () => {
+            currentDocId = null;
+            uploadSection.style.display = 'block';
+            documentInfo.style.display = 'none';
+            chatSection.style.display = 'none';
+            chatMessages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-content">
+                        <p>Document loaded! Ask me anything about its contents.</p>
+                    </div>
+                </div>
+            `;
+        });
+
+        async function uploadFile(file) {
+            uploadBox.innerHTML = '<p>Uploading...</p>';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentDocId = data.doc_id;
+                    document.getElementById('doc-filename').textContent = data.filename;
+                    document.getElementById('doc-stats').textContent =
+                        `${data.stats.words.toLocaleString()} words · ${data.stats.paragraphs} paragraphs · ~${data.stats.estimated_tokens.toLocaleString()} tokens`;
+
+                    uploadSection.style.display = 'none';
+                    documentInfo.style.display = 'block';
+                    chatSection.style.display = 'block';
+                    questionInput.focus();
+                } else {
+                    alert(data.error || 'Upload failed');
+                    resetUploadBox();
+                }
+            } catch (error) {
+                alert('Upload failed: ' + error.message);
+                resetUploadBox();
+            }
+        }
+
+        function resetUploadBox() {
+            uploadBox.innerHTML = `
+                <div class="upload-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <p>Drag and drop a file here, or click to browse</p>
+                <p class="upload-hint">Supports: PDF, DOCX, TXT, MD (max 16MB)</p>
+            `;
+        }
+
+        // Chat handlers
+        sendBtn.addEventListener('click', sendQuestion);
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendQuestion();
+        });
+
+        async function sendQuestion() {
+            const question = questionInput.value.trim();
+            if (!question || !currentDocId) return;
+
+            // Add user message
+            addMessage(question, 'user');
+            questionInput.value = '';
+            questionInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Add loading message
+            const loadingId = addMessage('Thinking...', 'assistant', true);
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ doc_id: currentDocId, question })
+                });
+
+                const data = await response.json();
+
+                // Remove loading message
+                document.getElementById(loadingId)?.remove();
+
+                if (data.success) {
+                    addMessage(data.answer, 'assistant');
+                } else {
+                    addMessage('Error: ' + (data.error || 'Failed to get answer'), 'assistant');
+                }
+            } catch (error) {
+                document.getElementById(loadingId)?.remove();
+                addMessage('Error: ' + error.message, 'assistant');
+            }
+
+            questionInput.disabled = false;
+            sendBtn.disabled = false;
+            questionInput.focus();
+        }
+
+        function addMessage(content, type, isLoading = false) {
+            const id = 'msg-' + Date.now();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.id = id;
+            if (isLoading) messageDiv.classList.add('loading');
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <p>${content.replace(/\n/g, '<br>')}</p>
+                </div>
+            `;
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            return id;
+        }
+    </script>
+</body>
+</html>

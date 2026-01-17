@@ -3,13 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Q&A Assistant</title>
+    <title>DocuMind - AI Document Q&A</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <!-- Animated Background -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+    <div class="floating-orb orb-1"></div>
+    <div class="floating-orb orb-2"></div>
+
     <div class="container">
         <header>
-            <h1>Document Q&A Assistant</h1>
+            <div class="header-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <circle cx="12" cy="15" r="2"/>
+                    <path d="M12 12v-2"/>
+                </svg>
+            </div>
+            <h1>DocuMind</h1>
             <p class="subtitle">Upload a document and ask questions about its contents</p>
         </header>
 
@@ -35,7 +49,7 @@
                 <div class="doc-card">
                     <div class="doc-header">
                         <span class="doc-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
                             </svg>
@@ -44,7 +58,14 @@
                             <h3 id="doc-filename">document.pdf</h3>
                             <p id="doc-stats">Loading...</p>
                         </div>
-                        <button class="btn-secondary" id="upload-new">Upload Different</button>
+                        <button class="btn-secondary" id="upload-new">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Upload Different
+                        </button>
                     </div>
                 </div>
             </section>
@@ -54,6 +75,12 @@
                 <div class="chat-container">
                     <div class="chat-messages" id="chat-messages">
                         <div class="message assistant">
+                            <div class="message-avatar">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
+                                    <path d="M12 8v4l3 3"/>
+                                </svg>
+                            </div>
                             <div class="message-content">
                                 <p>Document loaded! Ask me anything about its contents.</p>
                             </div>
@@ -63,7 +90,7 @@
                     <div class="chat-input-container">
                         <input type="text" id="question-input" placeholder="Ask a question about the document..." autocomplete="off">
                         <button id="send-btn" class="btn-primary">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="22" y1="2" x2="11" y2="13"/>
                                 <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                             </svg>
@@ -74,7 +101,13 @@
         </main>
 
         <footer>
-            <p>Document Q&A Assistant - AI-Powered Document Analysis</p>
+            <div class="footer-content">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>DocuMind - AI-Powered Document Analysis</span>
+            </div>
         </footer>
     </div>
 
@@ -117,20 +150,41 @@
 
         uploadNewBtn.addEventListener('click', () => {
             currentDocId = null;
-            uploadSection.style.display = 'block';
+            uploadSection.style.display = 'flex';
             documentInfo.style.display = 'none';
             chatSection.style.display = 'none';
+            resetChatMessages();
+            resetUploadBox();
+        });
+
+        function resetChatMessages() {
             chatMessages.innerHTML = `
                 <div class="message assistant">
+                    <div class="message-avatar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
+                            <path d="M12 8v4l3 3"/>
+                        </svg>
+                    </div>
                     <div class="message-content">
                         <p>Document loaded! Ask me anything about its contents.</p>
                     </div>
                 </div>
             `;
-        });
+        }
 
         async function uploadFile(file) {
-            uploadBox.innerHTML = '<p>Uploading...</p>';
+            uploadBox.classList.add('loading');
+            uploadBox.innerHTML = `
+                <div class="upload-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/>
+                        <path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/>
+                        <path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                </div>
+                <p>Processing document...</p>
+            `;
 
             const formData = new FormData();
             formData.append('file', file);
@@ -151,7 +205,7 @@
 
                     uploadSection.style.display = 'none';
                     documentInfo.style.display = 'block';
-                    chatSection.style.display = 'block';
+                    chatSection.style.display = 'flex';
                     questionInput.focus();
                 } else {
                     alert(data.error || 'Upload failed');
@@ -161,6 +215,8 @@
                 alert('Upload failed: ' + error.message);
                 resetUploadBox();
             }
+
+            uploadBox.classList.remove('loading');
         }
 
         function resetUploadBox() {
@@ -193,8 +249,8 @@
             questionInput.disabled = true;
             sendBtn.disabled = true;
 
-            // Add loading message
-            const loadingId = addMessage('Thinking...', 'assistant', true);
+            // Add typing indicator
+            const loadingId = addTypingIndicator();
 
             try {
                 const response = await fetch('/ask', {
@@ -205,7 +261,7 @@
 
                 const data = await response.json();
 
-                // Remove loading message
+                // Remove typing indicator
                 document.getElementById(loadingId)?.remove();
 
                 if (data.success) {
@@ -223,16 +279,52 @@
             questionInput.focus();
         }
 
-        function addMessage(content, type, isLoading = false) {
+        function addMessage(content, type) {
             const id = 'msg-' + Date.now();
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${type}`;
             messageDiv.id = id;
-            if (isLoading) messageDiv.classList.add('loading');
+
+            const avatarIcon = type === 'user'
+                ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                       <circle cx="12" cy="7" r="4"/>
+                   </svg>`
+                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
+                       <path d="M12 8v4l3 3"/>
+                   </svg>`;
 
             messageDiv.innerHTML = `
+                <div class="message-avatar">${avatarIcon}</div>
                 <div class="message-content">
                     <p>${content.replace(/\n/g, '<br>')}</p>
+                </div>
+            `;
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            return id;
+        }
+
+        function addTypingIndicator() {
+            const id = 'typing-' + Date.now();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant loading';
+            messageDiv.id = id;
+
+            messageDiv.innerHTML = `
+                <div class="message-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z"/>
+                        <path d="M12 8v4l3 3"/>
+                    </svg>
+                </div>
+                <div class="message-content">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
                 </div>
             `;
 

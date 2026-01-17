@@ -1,118 +1,143 @@
-# Document Q&A Assistant
-
-An AI-powered tool for asking questions about uploaded documents. Upload a PDF, Word doc, or text file and get instant answers about its contents.
+# DocuMind: Document Q&A Assistant
 
 ## The Problem
 
-Reading through long documents to find specific information is time-consuming. Whether it's a contract, research paper, or policy document, finding answers often means manual searching and reading.
+You have a 50-page contract. Legal wants to know the termination clauses. You have a research paper. Your manager wants the key methodology. You have meeting notes from last quarter. Someone asks what was decided about the budget.
 
-## The Solution
+The answer is *in there somewhere*. But finding it means Ctrl+F, skimming, re-reading context, and hoping you didn't miss anything. This is exactly the kind of task that AI should handle.
 
-This tool lets you:
-1. Upload any document (PDF, DOCX, TXT, MD)
-2. Ask natural language questions
-3. Get AI-powered answers based on the document content
+## What I Built
 
-## Features
+A document Q&A system that lets you upload a document and ask questions about it in natural language. The AI answers based only on the document content—no hallucination from training data.
 
-- **Multi-format support**: PDF, Word documents, plain text, Markdown
-- **Conversational interface**: Ask follow-up questions naturally
-- **Context-aware answers**: AI only answers based on document content
-- **Works offline**: Demo mode available without API key
-- **Clean UI**: Modern, responsive chat interface
-
-## Tech Stack
-
-- **Backend**: Python, Flask
-- **AI**: OpenAI GPT (with fallback demo mode)
-- **Document Processing**: PyPDF2, python-docx
-- **Frontend**: Vanilla JavaScript, CSS
-
-## Quick Start
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# (Optional) Set OpenAI API key for full AI capabilities
-export OPENAI_API_KEY=your-key-here
-
-# Run the app
-python run.py
-
-# Open in browser
-open http://localhost:5001
-```
+**The core architecture is RAG-adjacent**: extract text, chunk it for context windows, and use the chunks to ground LLM responses. It's not full vector-search RAG (more on that below), but it demonstrates the key concepts.
 
 ## How It Works
 
-1. **Document Upload**: File is parsed and text is extracted
-2. **Text Processing**: Content is chunked for efficient processing
-3. **Question Handling**: Your question + document context sent to AI
-4. **Response**: AI generates answer based only on document content
-
-## Project Structure
-
 ```
-doc-qa-assistant/
-├── app/
-│   ├── __init__.py           # App factory
-│   ├── routes.py             # API endpoints
-│   ├── document_processor.py # Text extraction & chunking
-│   ├── ai_service.py         # LLM integration (pluggable)
-│   └── templates/
-│       └── index.html        # Chat interface
-├── static/
-│   └── style.css             # Styling
-├── uploads/                   # Temporary file storage
-├── config.py                  # Configuration
-├── run.py                     # Entry point
-└── requirements.txt           # Dependencies
+┌──────────────────────────────────────────────────────────────┐
+│  UPLOAD PHASE                                                 │
+│                                                               │
+│  Document → Text Extraction → Chunking → Store                │
+│             (PyPDF2/docx)    (2000 char   (in-memory,        │
+│                               + overlap)   keyed by ID)       │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│  QUERY PHASE                                                  │
+│                                                               │
+│  Question + Context Selection → LLM → Answer                  │
+│             │                                                 │
+│             ├─ If doc < 8000 chars: use full text            │
+│             └─ If doc ≥ 8000 chars: use first 4 chunks       │
+│                                                               │
+│  System prompt: "Answer ONLY from the provided context.       │
+│                  If the answer isn't there, say so."          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## API Endpoints
+## Key Decisions & Tradeoffs
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Main chat interface |
-| `/upload` | POST | Upload a document |
-| `/ask` | POST | Ask a question about uploaded doc |
-| `/documents` | GET | List all uploaded documents |
-| `/document/<id>` | GET | Get document details |
+### Why chunking with overlap?
 
-## Architecture Decisions
+LLMs have context limits. A 100-page PDF won't fit. So you chunk it. But naive chunking (split every N characters) breaks mid-sentence and loses context. My approach:
 
-### Pluggable AI Provider
-The `ai_service.py` module uses an abstract base class pattern, making it easy to swap LLM providers:
+- **2000 character chunks** - fits comfortably in context windows
+- **200 character overlap** - maintains continuity between chunks
+- **Smart boundaries** - looks for paragraph/sentence breaks, doesn't split mid-word
+
+The overlap is crucial. Without it, a question about something that spans two chunks gets incomplete context.
+
+### Why not full vector RAG?
+
+The "proper" RAG approach is:
+1. Embed all chunks into vectors
+2. Embed the question
+3. Find most similar chunks via cosine similarity
+4. Send only relevant chunks to the LLM
+
+I didn't implement this. Why?
+
+**Tradeoff: complexity vs. demo scope.** Vector RAG requires an embedding model, a vector store (Pinecone, Chroma, pgvector), and similarity search logic. For a portfolio project demonstrating the concept, simplified context selection (first N chunks) shows the architecture without the infrastructure overhead.
+
+**What I'd add for production:** Vector embeddings with `text-embedding-3-small`, stored in ChromaDB or similar. This is the obvious next step and I call it out explicitly.
+
+### Why a pluggable provider pattern?
 
 ```python
-# Currently supports
-provider = get_ai_provider("openai")  # GPT-3.5/4
-provider = get_ai_provider("mock")    # Demo mode
-provider = get_ai_provider("auto")    # Auto-detect
+class AIProvider(ABC):
+    @abstractmethod
+    def answer_question(self, question: str, context: str) -> str:
+        pass
+
+class OpenAIProvider(AIProvider): ...
+class MockProvider(AIProvider): ...  # Keyword matching fallback
 ```
 
-### Document Chunking
-Large documents are split into overlapping chunks to stay within token limits while maintaining context.
+This isn't over-engineering—it's practical. The mock provider lets the app work without API keys (important for demos). And if I wanted to swap in Claude or a local model, I'd add another provider class. The abstraction costs almost nothing and enables flexibility.
 
-### Demo Mode
-Without an API key, the app falls back to simple keyword matching. This allows the project to be demonstrated without incurring API costs.
+### Why low temperature (0.3) for answers?
 
-## Future Enhancements
+Document Q&A should be factual, not creative. High temperature causes the model to "fill in" information that sounds plausible but isn't in the source. Low temperature keeps it grounded. I tested this extensively—0.3 gave the best balance of fluent responses without hallucination.
 
-- Vector embeddings for semantic search
-- Support for more file formats (HTML, EPUB)
-- Conversation history persistence
-- Multiple document comparison
-- Source highlighting in answers
+## Tech Stack
 
-## Use Cases
+| Component | Choice | Reasoning |
+|-----------|--------|-----------|
+| Backend | Flask | Simple, well-documented, no magic |
+| PDF parsing | PyPDF2 | Handles most PDFs, pure Python |
+| Word docs | python-docx | Microsoft format support |
+| AI | OpenAI GPT-3.5-turbo | Good enough for extraction tasks |
+| Frontend | Vanilla JS | No build step, easy to understand |
 
-- **Contract Review**: "What are the termination clauses?"
-- **Research**: "What methodology did this study use?"
-- **Policy Analysis**: "What's the policy on remote work?"
-- **Meeting Notes**: "What action items were assigned?"
+## What I'd Do Differently
+
+**1. Implement proper vector search.** The current "first 4 chunks" approach works for small docs but fails for large ones where the answer is on page 47. ChromaDB + embeddings would fix this.
+
+**2. Add source highlighting.** When the AI quotes the document, I should highlight that passage in a document viewer. This builds trust and lets users verify.
+
+**3. Stream responses.** Currently waits for the full response before displaying. Streaming would feel much faster.
+
+**4. Persist documents.** Everything is in-memory. A SQLite store with document metadata would let users return to previous uploads.
+
+**5. Handle tables and images.** PyPDF2 extracts text but loses table structure. PDFs with charts give poor results. For production, I'd use a document intelligence service or specialized table extraction.
+
+## Running It
+
+```bash
+git clone https://github.com/[username]/doc-qa-assistant
+cd doc-qa-assistant
+pip install -r requirements.txt
+
+# Demo mode (keyword matching, no API key needed)
+python run.py
+
+# Full mode
+export OPENAI_API_KEY=your-key
+python run.py
+
+# → http://localhost:5001
+```
+
+## Example Use Cases
+
+| Document Type | Example Question |
+|---------------|------------------|
+| Contract | "What are the termination clauses?" |
+| Research paper | "What methodology did this study use?" |
+| Policy document | "What's the policy on expense reimbursement?" |
+| Meeting notes | "What action items were assigned to the engineering team?" |
+| Technical spec | "What are the API rate limits?" |
+
+## What This Demonstrates
+
+- **RAG fundamentals**: Chunking, context selection, grounded generation
+- **Document processing**: Multi-format text extraction
+- **Prompt engineering**: System prompts that constrain hallucination
+- **Provider abstraction**: Swappable AI backends
+- **Practical UX**: Chat interface, loading states, error handling
 
 ---
 
-*Built as a portfolio project demonstrating AI integration and practical tool development.*
+*This is a simplified RAG implementation focused on demonstrating the core concepts. The architecture patterns—chunking, context injection, grounded prompts—are the foundation of enterprise document AI systems.*

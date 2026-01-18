@@ -1,5 +1,7 @@
 # DocuMind: Document Q&A Assistant
 
+![Interface Screenshot](screenshots/interface.png)
+
 ## The Problem
 
 You have a 50-page contract. Legal wants to know the termination clauses. You have a research paper. Your manager wants the key methodology. You have meeting notes from last quarter. Someone asks what was decided about the budget.
